@@ -77,3 +77,24 @@ func (e *EseisClient) Authenticate() (*authToken, error) {
 	}
 	return token, nil
 }
+
+func (e *EseisClient) checkAuthenticated() error {
+	if e.accessToken == nil || e.accessToken.expiresAt.Add(-10*time.Minute).Before(time.Now()) {
+		token, err := e.Authenticate()
+		if err != nil {
+			return fmt.Errorf("failed to authenticate: %w", err)
+		}
+		e.accessToken = token
+	}
+	return nil
+}
+
+func (e *EseisClient) setAuthentication(request *http.Request) error {
+	if err := e.checkAuthenticated(); err != nil {
+		return err
+	}
+	if e.accessToken != nil {
+		request.Header.Set("Authorization", "Bearer "+e.accessToken.accessToken)
+	}
+	return nil
+}

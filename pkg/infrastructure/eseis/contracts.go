@@ -20,16 +20,14 @@ type Contract struct {
 }
 
 func (e *EseisClient) GetContracts(sergicOffer string) ([]Contract, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v1/users/me/contracts?by_sergic_offer=%s", sergicOffer)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contracts request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -101,16 +99,14 @@ type ContractFolder struct {
 }
 
 func (e *EseisClient) GetContractFolders(contractID int, page int) ([]ContractFolder, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v2/contract_folders?by_contract=%d&page=%d&sort=display_name", contractID, page)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract_folders request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -150,16 +146,14 @@ type ContractDocument struct {
 }
 
 func (e *EseisClient) GetContractDocuments(contractID int, folderID, page int) ([]ContractDocument, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v1/contracts/%d/contract_documents?by_folder=%d&page=%d", contractID, folderID, page)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract_documents request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

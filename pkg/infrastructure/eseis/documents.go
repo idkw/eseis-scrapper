@@ -8,16 +8,14 @@ import (
 )
 
 func (e *EseisClient) GetDocument(uuid string) ([]byte, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v1/sergic_documents?access_token=%s&uuid=%s", e.accessToken.accessToken, uuid)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sergic_documents request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

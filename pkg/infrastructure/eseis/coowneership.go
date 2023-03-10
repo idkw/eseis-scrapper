@@ -19,16 +19,14 @@ type CoownershipFolder struct {
 }
 
 func (e *EseisClient) GetCoownershipFolders(placeID int, page int) ([]CoownershipFolder, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v2/places/%d/coownership_folders?page=%d&sort=display_name", placeID, page)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create coownership_folders request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -68,16 +66,14 @@ type CoownershipDocument struct {
 }
 
 func (e *EseisClient) GetCoownershipDocuments(placeID int, folderID int, page int) ([]CoownershipDocument, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v1/places/%d/coownership_documents?by_folder=%d&page=%d", placeID, folderID, page)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create coownership_documents request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -130,16 +126,14 @@ type MaintenanceContract struct {
 }
 
 func (e *EseisClient) GetMaintenanceContractCategories(placeID int) ([]MaintenanceContractCategory, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return nil, err
-	}
-
 	path := fmt.Sprintf("/v1/places/%d/maintenance_contract_categories", placeID)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance_contract_categories request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -213,16 +207,14 @@ type MaintenanceContractDocument struct {
 }
 
 func (e *EseisClient) GetMaintenanceContractDetails(maintenanceContractID int) (MaintenanceContractDetails, error) {
-	if err := e.checkAuthenticated(); err != nil {
-		return MaintenanceContractDetails{}, err
-	}
-
 	path := fmt.Sprintf("/v1/maintenance_contracts/%d", maintenanceContractID)
 	req, err := http.NewRequest("GET", e.buildURL(path), nil)
 	if err != nil {
 		return MaintenanceContractDetails{}, fmt.Errorf("failed to create maintenance_contract request: %w", err)
 	}
-	e.setAuthentication(req)
+	if err = e.setAuthentication(req); err != nil {
+		return MaintenanceContractDetails{}, err
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -18,12 +18,16 @@ type config struct {
 }
 
 const (
-	sergicOffer    = "ESE"
-	individualDir  = "individual"
-	coownershipDir = "coownership"
-	maintenanceDir = "maintenance"
-	infoFile       = "info.txt"
-	fileExtension  = ".pdf"
+	sergicOffer            = "ESE"
+	individualDir          = "individual"
+	coownershipDir         = "coownership"
+	maintenanceDir         = "maintenance"
+	reportsDir             = "reports"
+	reportsOpenedDir       = "opened"
+	reportsAcknowledgedDir = "acknowledged"
+	reportsResolvedDir     = "resolved"
+	infoFile               = "info.txt"
+	fileExtension          = ".pdf"
 )
 
 func main() {
@@ -46,6 +50,7 @@ func exportContracts(client *eseis.EseisClient, outDir string) {
 		exportIndividualDocuments(client, contract, contractOutDir)
 		exportCoownershipDocuments(client, contract, contractOutDir)
 		exportMaintenanceContractDocuments(client, contract, contractOutDir)
+		exportReports(client, contract, contractOutDir)
 	}
 }
 
@@ -136,6 +141,29 @@ func exportMaintenanceContractDocuments(client *eseis.EseisClient, contract esei
 	}
 }
 
+func exportReports(client *eseis.EseisClient, contract eseis.Contract, outDir string) {
+	mkDirFatal(joinFilePath(outDir, reportsDir, reportsOpenedDir))
+	mkDirFatal(joinFilePath(outDir, reportsDir, reportsAcknowledgedDir))
+	mkDirFatal(joinFilePath(outDir, reportsDir, reportsResolvedDir))
+
+	reportsPage := 1
+	for {
+		reports, err := client.GetReports(contract.PlaceID, reportsPage)
+		mustBeNilErr(err, "failed to get contract folders for placeId=%d page=%d", contract.PlaceID, reportsPage)
+		if len(reports) == 0 {
+			break
+		}
+
+		for _, report := range reports {
+			logrus.Infof("----------\nReport %d:%s", report.ID, report.DisplayName)
+			err := client.CreateReportScreenshot(report, joinFilePath(outDir, reportsDir, report.State))
+			mustBeNilErr(err, "failed screenshot for report %d", report.ID)
+		}
+
+		reportsPage++
+	}
+}
+
 func exportDocument(client *eseis.EseisClient, documentUUID string, documentName string, updatedAt time.Time, folderPath string) {
 	logrus.Infof("Exporting document %s:%s to folder %s", documentUUID, documentName, folderPath)
 
@@ -187,7 +215,8 @@ func joinFilePath(elements ...string) string {
 }
 
 func sanitizePath(filePath string) string {
-	return strings.ReplaceAll(filePath, "/", "_")
+	filePath = strings.ReplaceAll(filePath, "/", "_")
+	return strings.Trim(filePath, " ")
 }
 func newConfig() (*config, error) {
 	config := &config{}
