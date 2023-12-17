@@ -26,7 +26,7 @@ const (
 	reportsOpenedDir       = "opened"
 	reportsAcknowledgedDir = "acknowledged"
 	reportsResolvedDir     = "resolved"
-	infoFile               = "info.txt"
+	budgetsDir             = "budgets"
 	fileExtension          = ".pdf"
 )
 
@@ -51,6 +51,7 @@ func exportContracts(client *eseis.EseisClient, outDir string) {
 		exportCoownershipDocuments(client, contract, contractOutDir)
 		exportMaintenanceContractDocuments(client, contract, contractOutDir)
 		exportReports(client, contract, contractOutDir)
+		exportBudgets(client, contract, contractOutDir)
 	}
 }
 
@@ -136,7 +137,7 @@ func exportMaintenanceContractDocuments(client *eseis.EseisClient, contract esei
 			}
 
 			// add additional info file for metadata
-			exportInfoFile(maintenanceContractDetails, maintenanceContractFolderPath)
+			exportInfoFile(maintenanceContractDetails, joinFilePath(maintenanceContractFolderPath, "info.json"))
 		}
 	}
 }
@@ -161,6 +162,47 @@ func exportReports(client *eseis.EseisClient, contract eseis.Contract, outDir st
 		}
 
 		reportsPage++
+	}
+}
+
+func exportBudgets(client *eseis.EseisClient, contract eseis.Contract, outDir string) {
+	mkDirFatal(joinFilePath(outDir, budgetsDir))
+
+	fiscalYears, err := client.GetFiscalYears(contract.PlaceID)
+	mustBeNilErr(err, "failed to get fiscal years for placeId=%d", contract.PlaceID)
+
+	for _, fiscalYear := range fiscalYears {
+		budgets, err := client.GetBudgets(contract.PlaceID, fiscalYear.ID)
+		mustBeNilErr(err, "failed to get budgets for placeId=%d and fiscalYear=%d", contract.PlaceID, fiscalYear.ID)
+		fiscalYearDirName := joinFilePath(
+			outDir,
+			budgetsDir,
+			strings.ReplaceAll(fiscalYear.DisplayName, "/", "_"),
+		)
+		mkDirFatal(fiscalYearDirName)
+		exportInfoFile(fiscalYear, joinFilePath(fiscalYearDirName, "info.json"))
+
+		for _, budget := range budgets {
+			budgetDirName := joinFilePath(
+				fiscalYearDirName,
+				sanitizePath(budget.DisplayName),
+			)
+			mkDirFatal(budgetDirName)
+			exportInfoFile(budget, joinFilePath(budgetDirName, "info.json"))
+
+			accountPlaceEntries, err := client.GetAccountPlaceEntries(budget.ID)
+			mustBeNilErr(err, "failed to get account place entries for budgetID=%d", budget.ID)
+			for _, accountPlaceEntry := range accountPlaceEntries {
+				exportDocumentName := fmt.Sprintf(
+					"%s_%d_%s",
+					accountPlaceEntry.OperationDate.Format(time.RFC3339),
+					accountPlaceEntry.Amount,
+					sanitizePath(accountPlaceEntry.DisplayName),
+				)
+				exportInfoFile(accountPlaceEntry, joinFilePath(budgetDirName, fmt.Sprintf("%s.json", exportDocumentName)))
+				exportDocument(client, accountPlaceEntry.UUID, exportDocumentName, accountPlaceEntry.UpdatedAt, budgetDirName)
+			}
+		}
 	}
 }
 
@@ -191,11 +233,11 @@ func exportDocument(client *eseis.EseisClient, documentUUID string, documentName
 	mustBeNilErr(err, "failed to write output document at path %s", documentFilePath)
 }
 
-func exportInfoFile(content any, folderPath string) {
+func exportInfoFile(content any, infoFilePath string) {
 	// add aditional info file for metadata
 	contentJson, err := json.MarshalIndent(content, "", "  ")
 	mustBeNilErr(err, "failed to serialize info file for %+v", content)
-	err = os.WriteFile(joinFilePath(folderPath, infoFile), contentJson, 0660)
+	err = os.WriteFile(infoFilePath, contentJson, 0660)
 	mustBeNilErr(err, "failed to write info file for id=%+v", content)
 }
 

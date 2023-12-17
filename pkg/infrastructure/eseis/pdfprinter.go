@@ -56,31 +56,43 @@ func (e *EseisClient) SavePDF(URL string, outPath string) error {
 }
 
 func printPdfTasks(urlstr string, res *pdfRes) chromedp.Tasks {
-	return chromedp.Tasks{
+	tasks := chromedp.Tasks{
 		chromedp.Navigate(urlstr),
-		chromedp.WaitReady(".sc-jQAxuV"),      // wait for title to be visible
-		chromedp.WaitReady(".sc-eDdKWq"),      // wait for author to be visible
-		chromedp.WaitReady(".sc-eHEENL"),      // wait for report description to be visible
-		chromedp.WaitReady(".sc-dWBRfb"),      // wait for comment to be visible
-		NewRemoveElementAction("#appconsent"), // remove cookie banner
-		NewRemoveElementAction(".sc-kLDuD"),   // remove action buttons
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			buf, _, err := page.PrintToPDF().
-				Do(ctx)
-			if err != nil {
-				return err
-			}
-			res.buffer = &buf
-			return nil
-		}),
+		chromedp.WaitReady(".sc-jQAxuV"), // wait for title to be visible
+		chromedp.WaitReady(".sc-eDdKWq"), // wait for author to be visible
+		chromedp.WaitReady(".sc-eHEENL"), // wait for report description to be visible
+		chromedp.WaitReady(".sc-dWBRfb"), // wait for comment to be visible
 	}
+	//removeConsentAction := NewRemoveElementAction("#appconsent") // remove cookie banner
+	//if removeConsentAction != nil {
+	//	tasks = append(tasks, removeConsentAction)
+	//}
+
+	removeButtonsAction := NewRemoveElementAction("ul[role=\"navigation\"]") // remove action buttons
+	if removeButtonsAction != nil {
+		tasks = append(tasks, removeButtonsAction)
+	}
+
+	printPdfAction := chromedp.ActionFunc(func(ctx context.Context) error {
+		buf, _, err := page.PrintToPDF().
+			Do(ctx)
+		if err != nil {
+			return err
+		}
+		res.buffer = &buf
+		return nil
+	})
+	tasks = append(tasks, printPdfAction)
+
+	return tasks
 }
 
 func NewRemoveElementAction(selector string) chromedp.Action {
 	tpl, err := template.New("js").
 		Parse("let {{ .Node }} = document.querySelector('{{ .Selector }}'); {{ .Node }}.parentNode.removeChild({{ .Node }}); true;")
 	if err != nil {
-		panic(err)
+		logrus.Warnf("Failed to create template to remove element %s", selector)
+		return nil
 	}
 	type ctx struct {
 		Node, Selector string
@@ -92,7 +104,8 @@ func NewRemoveElementAction(selector string) chromedp.Action {
 	}
 	err = tpl.Execute(&buffer, c)
 	if err != nil {
-		panic(err)
+		logrus.Warnf("Failed to execute template to remove element %s", selector)
+		return nil
 	}
 	javascript := buffer.String()
 	return chromedp.Evaluate(javascript, nil)

@@ -52,41 +52,6 @@ func (e *EseisClient) GetContracts(sergicOffer string) ([]Contract, error) {
 	return contracts, nil
 }
 
-//func (e *EseisClient) GetContracts(sergicOffer string, placeID int) ([]Contract, error) {
-//	if err := e.checkAuthenticated(); err != nil {
-//		return nil, err
-//	}
-//
-//	path := fmt.Sprintf("/v1/users/me/contracts?by_sergic_offer=%s&by_place=%d", sergicOffer, placeID)
-//	req, err := http.NewRequest("GET", e.buildURL(path), nil)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to create contracts request: %w", err)
-//	}
-//	e.setAuthentication(req)
-//
-//	resp, err := http.DefaultClient.Do(req)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to send contracts request: %w", err)
-//	}
-//	defer resp.Body.Close()
-//
-//	var contractsResponse []contractResponse
-//	err = json.NewDecoder(resp.Body).Decode(&contractsResponse)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to decode contracts response: %w", err)
-//	}
-//
-//	var contracts = make([]Contract, len(contractsResponse))
-//	for i, contractResponse := range contractsResponse {
-//		contracts[i] = Contract{
-//			ID:          contractResponse.ID,
-//			DisplayName: contractResponse.DisplayName,
-//			PlaceID:     contractResponse.PlaceID,
-//		}
-//	}
-//	return contracts, nil
-//}
-
 type contractFolderResponse struct {
 	ID             int    `json:"id"`
 	DisplayName    string `json:"display_name"`
