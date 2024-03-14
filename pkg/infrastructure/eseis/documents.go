@@ -31,3 +31,27 @@ func (e *EseisClient) GetDocument(uuid string) ([]byte, error) {
 
 	return buffer.Bytes(), nil
 }
+
+func (e *EseisClient) GetAttachment(url string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attachments request: %w", err)
+	}
+	if err = e.setAuthentication(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send attachments request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	buffer := bytes.Buffer{}
+	_, err = io.Copy(&buffer, resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read attachments response body: %w", err)
+	}
+
+	return buffer.Bytes(), nil
+}
