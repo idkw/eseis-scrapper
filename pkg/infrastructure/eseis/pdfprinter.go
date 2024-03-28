@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"os"
 	"text/template"
+	"time"
 )
 
 type pdfRes struct {
@@ -44,9 +45,15 @@ func login(c *chrome.Chrome, URL string, username string, password string) error
 	return c.RunTasks(tasks)
 }
 
-func (e *EseisClient) SavePDF(URL string, outPath string) error {
+func (e *EseisClient) SavePDF(URL string, outPath string, actions ...chromedp.Action) error {
 	var pdfRes = pdfRes{}
-	if err := e.chromeSession.RunTasks(printPdfTasks(URL, &pdfRes)); err != nil {
+
+	var savePDFActions []chromedp.Action
+	savePDFActions = append(savePDFActions, navigateAction(URL))
+	savePDFActions = append(savePDFActions, actions...)
+	savePDFActions = append(savePDFActions, printPdfAction(&pdfRes))
+
+	if err := e.chromeSession.RunTasks(savePDFActions); err != nil {
 		logrus.Fatal(err)
 	}
 	if err := os.WriteFile(outPath, *pdfRes.buffer, 0o644); err != nil {
@@ -55,25 +62,33 @@ func (e *EseisClient) SavePDF(URL string, outPath string) error {
 	return nil
 }
 
-func printPdfTasks(urlstr string, res *pdfRes) chromedp.Tasks {
-	tasks := chromedp.Tasks{
-		chromedp.Navigate(urlstr),
-		chromedp.WaitReady(".sc-jQAxuV"), // wait for title to be visible
-		chromedp.WaitReady(".sc-eDdKWq"), // wait for author to be visible
-		chromedp.WaitReady(".sc-eHEENL"), // wait for report description to be visible
-		chromedp.WaitReady(".sc-dWBRfb"), // wait for comment to be visible
-	}
-	//removeConsentAction := NewRemoveElementAction("#appconsent") // remove cookie banner
-	//if removeConsentAction != nil {
-	//	tasks = append(tasks, removeConsentAction)
-	//}
+func navigateAction(urlstr string) chromedp.Action {
+	return chromedp.Navigate(urlstr)
+}
 
-	removeButtonsAction := NewRemoveElementAction("ul[role=\"navigation\"]") // remove action buttons
-	if removeButtonsAction != nil {
-		tasks = append(tasks, removeButtonsAction)
+func WaitForReportPageActions() []chromedp.Action {
+	return []chromedp.Action{
+		chromedp.WaitReady(".sc-jQAxuV"),        // wait for title to be visible
+		chromedp.WaitReady(".sc-eDdKWq"),        // wait for author to be visible
+		chromedp.WaitReady(".sc-eHEENL"),        // wait for report description to be visible
+		chromedp.WaitReady(".sc-dWBRfb"),        // wait for comment to be visible
+		NewRemoveElementAction(".sc-kLDuD"),     // remove menu banner
+		NewRemovePaddingLeftAction(".sc-qFupO"), // remove menu banner left padding
 	}
+}
+func WaitForForumPageActions() []chromedp.Action {
+	return []chromedp.Action{
+		chromedp.WaitReady(".sc-jQAxuV"),        // wait for title to be visible
+		chromedp.WaitReady(".sc-eDdKWq"),        // wait for author to be visible
+		chromedp.WaitReady(".sc-jOFryr"),        // wait for report description to be visible
+		NewRemoveElementAction(".sc-kLDuD"),     // remove menu banner
+		NewRemovePaddingLeftAction(".sc-qFupO"), // remove menu banner left padding
+		chromedp.Sleep(2 * time.Second),
+	}
+}
 
-	printPdfAction := chromedp.ActionFunc(func(ctx context.Context) error {
+func printPdfAction(res *pdfRes) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
 		buf, _, err := page.PrintToPDF().
 			Do(ctx)
 		if err != nil {
@@ -82,9 +97,6 @@ func printPdfTasks(urlstr string, res *pdfRes) chromedp.Tasks {
 		res.buffer = &buf
 		return nil
 	})
-	tasks = append(tasks, printPdfAction)
-
-	return tasks
 }
 
 func NewRemoveElementAction(selector string) chromedp.Action {
@@ -105,6 +117,30 @@ func NewRemoveElementAction(selector string) chromedp.Action {
 	err = tpl.Execute(&buffer, c)
 	if err != nil {
 		logrus.Warnf("Failed to execute template to remove element %s", selector)
+		return nil
+	}
+	javascript := buffer.String()
+	return chromedp.Evaluate(javascript, nil)
+}
+
+func NewRemovePaddingLeftAction(selector string) chromedp.Action {
+	tpl, err := template.New("js").
+		Parse("let {{ .Node }} = document.querySelector('{{ .Selector }}'); {{ .Node }}.style.paddingLeft = 0; true;")
+	if err != nil {
+		logrus.Warnf("Failed to create template to remove element %s", selector)
+		return nil
+	}
+	type ctx struct {
+		Node, Selector string
+	}
+	buffer := bytes.Buffer{}
+	c := ctx{
+		Node:     fmt.Sprintf("node%d", rand.Int()),
+		Selector: selector,
+	}
+	err = tpl.Execute(&buffer, c)
+	if err != nil {
+		logrus.Warnf("Failed to execute template to remove padding left %s", selector)
 		return nil
 	}
 	javascript := buffer.String()

@@ -190,6 +190,12 @@ func exportForumTopics(client *eseis.EseisClient, contract eseis.Contract, outDi
 					"%d_%d_%d__%d__%s", year, month, day, forumTopic.ID, forumTopic.CleanDisplayName(),
 				))
 			utils.MkDirFatal(forumTopicDir)
+
+			err := client.CreateForumTopicScreenshot(forumTopic, forumTopicDir)
+			if err != nil {
+				utils.MustBeNilErr(err, "failed to create forum topic screenshot forumTopic=%d page=%d", forumTopic.ID, page)
+			}
+
 			exportInfoFile(forumTopic.Raw, utils.JoinFilePath(forumTopicDir, "topic.json"))
 			for _, attachment := range forumTopic.Raw.Attachments {
 				exportAttachment(client, attachment.FileURL, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, forumTopicDir)

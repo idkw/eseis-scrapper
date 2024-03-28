@@ -84,5 +84,5 @@ func (e *EseisClient) CreateReportScreenshot(report Report, outDir string) error
 	year, month, day := report.CreatedAt.Date()
 	reportFileName := fmt.Sprintf("%d_%d_%d__%d__%s.pdf", year, month, day, report.ID, reportName)
 	reportPath := filepath.Join(outDir, reportFileName)
-	return e.SavePDF(report.URL, reportPath)
+	return e.SavePDF(report.URL, reportPath, WaitForReportPageActions()...)
 }

@@ -118,7 +118,7 @@ func (e *EseisClient) CreateForumTopicScreenshot(forumTopic ForumTopic, outDir s
 	forumTopicFileName := fmt.Sprintf("%d_%d_%d__%d__%s.pdf", year, month, day, forumTopic.ID, forumTopicName)
 	forumTopicPath := filepath.Join(outDir, forumTopicFileName)
 	url := fmt.Sprintf("https://client.eseis-syndic.com/mes-echanges/forum/%d", forumTopic.ID)
-	return e.SavePDF(url, forumTopicPath)
+	return e.SavePDF(url, forumTopicPath, WaitForForumPageActions()...)
 }
 
 type postResponse struct {
