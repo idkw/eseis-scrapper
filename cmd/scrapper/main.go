@@ -152,16 +152,41 @@ func exportReports(client *eseis.EseisClient, contract eseis.Contract, outDir st
 
 	reportsPage := 1
 	for {
-		reports, err := client.GetReports(contract.PlaceID, reportsPage)
+		reportSummaries, err := client.GetReportSummaries(contract.PlaceID, reportsPage)
 		utils.MustBeNilErr(err, "failed to get contract folders for placeId=%d page=%d", contract.PlaceID, reportsPage)
-		if len(reports) == 0 {
+		if len(reportSummaries) == 0 {
 			break
 		}
 
-		for _, report := range reports {
-			logrus.Infof("----------\nReport %d:%s", report.ID, report.DisplayName)
-			err := client.CreateReportScreenshot(report, utils.JoinFilePath(outDir, reportsDir, report.State))
-			utils.MustBeNilErr(err, "failed screenshot for report %d", report.ID)
+		for _, reportSummary := range reportSummaries {
+			logrus.Infof("----------\nReport %d:%s", reportSummary.ID, reportSummary.DisplayName)
+
+			year, month, day := reportSummary.CreatedAt.Date()
+			reportDir := utils.JoinFilePath(
+				outDir,
+				reportsDir,
+				reportSummary.State,
+				fmt.Sprintf(
+					"%d_%d_%d__%d__%s", year, month, day, reportSummary.ID, reportSummary.CleanDisplayName(),
+				))
+			utils.MkDirFatal(reportDir)
+
+			err := client.CreateReportScreenshot(reportSummary, utils.JoinFilePath(reportDir))
+			utils.MustBeNilErr(err, "failed screenshot for report %d", reportSummary.ID)
+
+			report, err := client.GetReport(reportSummary.ID)
+			utils.MustBeNilErr(err, "failed to get report %d", reportSummary.ID)
+
+			for _, attachment := range report.Attachments {
+				exportAttachment(client, attachment.FileURL, attachment.ID, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, reportDir)
+			}
+
+			for _, event := range report.ReportEvents {
+				for _, attachment := range event.Attachments {
+					exportAttachment(client, attachment.FileURL, attachment.ID, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, reportDir)
+				}
+			}
+
 		}
 
 		reportsPage++
@@ -192,21 +217,17 @@ func exportForumTopics(client *eseis.EseisClient, contract eseis.Contract, outDi
 			utils.MkDirFatal(forumTopicDir)
 
 			err := client.CreateForumTopicScreenshot(forumTopic, forumTopicDir)
-			if err != nil {
-				utils.MustBeNilErr(err, "failed to create forum topic screenshot forumTopic=%d page=%d", forumTopic.ID, page)
-			}
+			utils.MustBeNilErr(err, "failed to create forum topic screenshot forumTopic=%d page=%d", forumTopic.ID, page)
 
-			exportInfoFile(forumTopic.Raw, utils.JoinFilePath(forumTopicDir, "topic.json"))
 			for _, attachment := range forumTopic.Raw.Attachments {
-				exportAttachment(client, attachment.FileURL, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, forumTopicDir)
+				exportAttachment(client, attachment.FileURL, attachment.ID, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, forumTopicDir)
 			}
 
 			topicPosts, err := client.GetAllTopicPosts(contract.PlaceID, forumTopic.ID)
 			utils.MustBeNilErr(err, "failed to get topic posts for placeID=%d forumTopic=%d", contract.PlaceID, forumTopic.ID)
-			exportInfoFile(topicPosts, utils.JoinFilePath(forumTopicDir, "posts.json"))
 			for _, post := range topicPosts {
 				for _, attachment := range post.Attachments {
-					exportAttachment(client, attachment.FileURL, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, forumTopicDir)
+					exportAttachment(client, attachment.FileURL, attachment.ID, attachment.SourceFileName, attachment.SourceContentType, attachment.SourceUpdatedAt, forumTopicDir)
 				}
 			}
 
@@ -284,7 +305,7 @@ func exportDocument(client *eseis.EseisClient, documentUUID string, documentName
 	utils.MustBeNilErr(err, "failed to write output document at path %s", documentFilePath)
 }
 
-func exportAttachment(client *eseis.EseisClient, url string, attachmentName string, attachmentFileType string, updatedAt time.Time, folderPath string) {
+func exportAttachment(client *eseis.EseisClient, url string, attachmentID int, attachmentName string, attachmentFileType string, updatedAt time.Time, folderPath string) {
 	logrus.Infof("Exporting attachment %s:%s to folder %s", url, attachmentName, folderPath)
 
 	fileExtension := ""
@@ -295,7 +316,8 @@ func exportAttachment(client *eseis.EseisClient, url string, attachmentName stri
 	case "image/jpeg":
 		fileExtension = jpgFileExtension
 	}
-	attachmentFilePath := utils.JoinFilePath(folderPath, utils.SanitizePath(attachmentName+fileExtension))
+	attachmentFileName := utils.SanitizePath(fmt.Sprintf("%s_%d.%s", attachmentName, attachmentID, fileExtension))
+	attachmentFilePath := utils.JoinFilePath(folderPath, attachmentFileName)
 
 	fileInfo, err := os.Stat(attachmentFilePath)
 	if errors.Is(err, os.ErrNotExist) {
