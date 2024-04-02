@@ -316,7 +316,7 @@ func exportAttachment(client *eseis.EseisClient, url string, attachmentID int, a
 	case "image/jpeg":
 		fileExtension = jpgFileExtension
 	}
-	attachmentFileName := utils.SanitizePath(fmt.Sprintf("%s_%d.%s", attachmentName, attachmentID, fileExtension))
+	attachmentFileName := utils.SanitizePath(fmt.Sprintf("%s_%d%s", attachmentName, attachmentID, fileExtension))
 	attachmentFilePath := utils.JoinFilePath(folderPath, attachmentFileName)
 
 	fileInfo, err := os.Stat(attachmentFilePath)
